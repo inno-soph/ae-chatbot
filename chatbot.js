@@ -10,7 +10,7 @@
 const CONFIG = {
     USE_MOCK_BACKEND: false,
     API_URL: 'http://20.168.112.204:8000/rag/query',
-    FEEDBACK_API_URL: 'http://127.0.0.1:8000/api/feedback',
+    FEEDBACK_API_URL: '/api/feedback',
     API_LANG: 'en',
     SCROLL_THRESHOLD: 100,
     SCROLL_DEBOUNCE: 250,
