@@ -1,5 +1,5 @@
 import requests
-BACKEND_RAG_URL = 'http://20.168.112.204:8000/rag/query'
+BACKEND_RAG_URL = 'http://127.0.0.1:8000/api/rag/query'
 
 def call_backend(question: str, lang_code: str, num_answers: int = 5):
     """

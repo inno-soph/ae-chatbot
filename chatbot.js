@@ -8,16 +8,25 @@
 // ============================================================================
 
 const CONFIG = {
-    API_URL: 'api/rag/query',
+    USE_MOCK_BACKEND: false,
+    API_URL: 'http://20.168.112.204:8000/rag/query',
+    FEEDBACK_API_URL: 'http://127.0.0.1:8000/api/feedback',
     API_LANG: 'en',
     SCROLL_THRESHOLD: 100,
     SCROLL_DEBOUNCE: 250,
     RESIZE_DEBOUNCE: 250,
     INPUT_MAX_LENGTH: 500,
+    COMMENT_MAX_LENGTH: 500,
     SLIDER_MIN: 1,
     SLIDER_MAX: 10,
     SLIDER_DEFAULT: 1
 };
+
+const MOCK_RESPONSES = [
+    "Question:\nWhat is the primary robot joint solution?\n\nAnswer:\nThis is a filler response for UI testing. Replace this with your final RAG content later.",
+    "Question:\nDo you have a 48V / 20A demo reference?\n\nAnswer:\nMock answer: yes, a sample demo guide can be shared. This text is intentionally generic for thumbs UI iteration.",
+    "Question:\nWhere is GaN commonly used?\n\nAnswer:\nMock answer: power conversion, motor drives, and compact high-efficiency designs."
+];
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -127,8 +136,13 @@ function debounce(func, wait) {
  * @param {string} text - Message text
  * @param {string} sender - 'user' or 'bot'
  */
-function addMessage(text, sender) {
+function addMessage(text, sender, options = {}) {
     if (!text || !sender) return;
+
+    const {
+        enableFeedback = false,
+        feedbackPayload = null
+    } = options;
 
     const message = document.createElement("div");
     message.className = `message ${sender}`;
@@ -145,13 +159,22 @@ function addMessage(text, sender) {
     avatar.appendChild(icon);
 
     // Create message bubble
+    const content = document.createElement("div");
+    content.className = "message-content";
+
     const bubble = document.createElement("div");
     bubble.className = "bubble";
     addTextContent(bubble, text);
     bubble.setAttribute("aria-label", `${sender} message: ${text}`);
+    content.appendChild(bubble);
+
+    if (sender === "bot" && enableFeedback && feedbackPayload) {
+        const feedbackUI = createFeedbackUI(feedbackPayload);
+        content.appendChild(feedbackUI);
+    }
 
     message.appendChild(avatar);
-    message.appendChild(bubble);
+    message.appendChild(content);
     elements.chatHistory.appendChild(message);
 
     // Initialize Lucide icons
@@ -163,6 +186,137 @@ function addMessage(text, sender) {
     if (state.shouldAutoScroll) {
         setTimeout(scrollToBottom, 100);
     }
+}
+
+/**
+ * Sends feedback data to backend
+ * @param {Object} payload - Feedback payload
+ * @returns {Promise<Response>}
+ */
+async function submitFeedback(payload) {
+    if (CONFIG.USE_MOCK_BACKEND) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+        return { ok: true };
+    }
+
+    return fetch(CONFIG.FEEDBACK_API_URL, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+    });
+}
+
+/**
+ * Creates feedback controls for bot responses
+ * @param {Object} feedbackPayload - Context for feedback submission
+ * @returns {HTMLElement}
+ */
+function createFeedbackUI(feedbackPayload) {
+    const container = document.createElement("div");
+    container.className = "feedback-container";
+
+    const prompt = document.createElement("span");
+    prompt.className = "feedback-prompt";
+    prompt.textContent = "Was this helpful?";
+    container.appendChild(prompt);
+
+    const buttonRow = document.createElement("div");
+    buttonRow.className = "feedback-buttons";
+
+    const upButton = document.createElement("button");
+    upButton.className = "feedback-btn";
+    upButton.type = "button";
+    upButton.setAttribute("aria-label", "Thumbs up");
+    upButton.innerHTML = '<i class="fa-regular fa-thumbs-up" aria-hidden="true"></i>';
+
+    const downButton = document.createElement("button");
+    downButton.className = "feedback-btn";
+    downButton.type = "button";
+    downButton.setAttribute("aria-label", "Thumbs down");
+    downButton.innerHTML = '<i class="fa-regular fa-thumbs-down" aria-hidden="true"></i>';
+
+    buttonRow.appendChild(upButton);
+    buttonRow.appendChild(downButton);
+    container.appendChild(buttonRow);
+
+    const commentBox = document.createElement("div");
+    commentBox.className = "feedback-comment hidden";
+
+    const commentInput = document.createElement("input");
+    commentInput.type = "text";
+    commentInput.className = "feedback-comment-input";
+    commentInput.placeholder = "Optional comment";
+    commentInput.maxLength = CONFIG.COMMENT_MAX_LENGTH;
+
+    const sendFeedbackButton = document.createElement("button");
+    sendFeedbackButton.type = "button";
+    sendFeedbackButton.className = "feedback-submit";
+    sendFeedbackButton.textContent = "Submit";
+
+    commentBox.appendChild(commentInput);
+    commentBox.appendChild(sendFeedbackButton);
+    container.appendChild(commentBox);
+
+    const status = document.createElement("span");
+    status.className = "feedback-status";
+    status.setAttribute("aria-live", "polite");
+    container.appendChild(status);
+
+    let selectedRating = "";
+    let isSubmitted = false;
+
+    function markSelected(rating) {
+        selectedRating = rating;
+        upButton.classList.toggle("selected", rating === "up");
+        downButton.classList.toggle("selected", rating === "down");
+        commentBox.classList.remove("hidden");
+        status.textContent = "";
+    }
+
+    async function handleFeedbackSubmit() {
+        if (isSubmitted || !selectedRating) return;
+
+        try {
+            sendFeedbackButton.disabled = true;
+            status.textContent = "Saving feedback...";
+
+            const response = await submitFeedback({
+                rating: selectedRating,
+                comment: commentInput.value.trim(),
+                question: feedbackPayload.question || "",
+                response: feedbackPayload.response || "",
+                lang: feedbackPayload.lang || CONFIG.API_LANG
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            isSubmitted = true;
+            prompt.remove();
+            buttonRow.remove();
+            commentBox.remove();
+            status.textContent = "Thanks for your feedback!";
+        } catch (error) {
+            console.error("Error submitting feedback:", error);
+            sendFeedbackButton.disabled = false;
+            status.textContent = "Could not save feedback. Please retry.";
+        }
+    }
+
+    upButton.addEventListener("click", () => markSelected("up"));
+    downButton.addEventListener("click", () => markSelected("down"));
+    sendFeedbackButton.addEventListener("click", handleFeedbackSubmit);
+    commentInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            handleFeedbackSubmit();
+        }
+    });
+
+    return container;
 }
 
 /**
@@ -278,6 +432,26 @@ async function sendMessageToAPI(question) {
     const numResults = parseInt(elements.slider?.value || CONFIG.SLIDER_DEFAULT, 10);
 
     try {
+        if (CONFIG.USE_MOCK_BACKEND) {
+            // Simulate backend delay so UI interaction feels realistic.
+            await new Promise(resolve => setTimeout(resolve, 550));
+            removeTypingIndicator();
+
+            const index = Math.floor(Math.random() * MOCK_RESPONSES.length);
+            const result = `${MOCK_RESPONSES[index]}\n\n(Mock mode active. Slider value: ${numResults})`;
+            const formattedResult = parseQuestionAnswer(result);
+
+            addMessage(formattedResult, "bot", {
+                enableFeedback: true,
+                feedbackPayload: {
+                    question,
+                    response: result,
+                    lang: CONFIG.API_LANG
+                }
+            });
+            return;
+        }
+
         const response = await fetch(CONFIG.API_URL, {
             method: 'POST',
             headers: {
@@ -300,7 +474,14 @@ async function sendMessageToAPI(question) {
 
         const result = data.result || data.answer || "Sorry, I couldn't process that request.";
         const formattedResult = parseQuestionAnswer(result);
-        addMessage(formattedResult, "bot");
+        addMessage(formattedResult, "bot", {
+            enableFeedback: true,
+            feedbackPayload: {
+                question,
+                response: result,
+                lang: CONFIG.API_LANG
+            }
+        });
 
     } catch (error) {
         console.error("Error calling API:", error);

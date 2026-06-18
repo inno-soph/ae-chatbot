@@ -345,12 +345,25 @@ body {
     border-radius: 16px;
     padding: 10px 14px;
     color: white;
-    display: flex;
-    align-items: center;
+    display: block;
     word-wrap: break-word;
     word-break: break-word;
     line-height: 1.4;
     box-shadow: var(--shadow-sm);
+}
+
+.message-content {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.message.user .message-content {
+    align-items: flex-end;
+}
+
+.message.bot .message-content {
+    align-items: flex-start;
 }
 
 .message.user .bubble {
@@ -385,6 +398,114 @@ body {
 
 .message.bot .avatar {
     background-color: var(--color-blue-dark);
+}
+
+/* ============================================================================
+   MESSAGE FEEDBACK
+   ============================================================================ */
+
+.feedback-container {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-width: 100%;
+}
+
+.feedback-prompt {
+    font-size: 12px;
+    color: var(--color-black-40);
+}
+
+.feedback-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.feedback-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    background-color: var(--color-white);
+    color: var(--color-blue-dark);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all var(--transition-base);
+}
+
+.feedback-btn:hover:not(:disabled) {
+    border-color: var(--color-blue-light);
+    color: var(--color-blue-light);
+    transform: translateY(-1px);
+}
+
+.feedback-btn.selected {
+    background-color: var(--color-blue-light);
+    border-color: var(--color-blue-light);
+    color: var(--color-white);
+}
+
+.feedback-btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+    transform: none;
+}
+
+.feedback-comment {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    width: 100%;
+}
+
+.feedback-comment.hidden {
+    display: none;
+}
+
+.feedback-comment-input {
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    border-radius: 16px;
+    padding: 6px 10px;
+    font-size: 12px;
+    line-height: 1.4;
+    min-width: 0;
+    width: 220px;
+    max-width: 100%;
+}
+
+.feedback-comment-input:focus {
+    outline: none;
+    border-color: var(--color-blue-light);
+    box-shadow: 0 0 0 2px rgba(0, 162, 233, 0.12);
+}
+
+.feedback-submit {
+    border: none;
+    border-radius: 16px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    background-color: var(--color-blue-light);
+    color: var(--color-white);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    white-space: nowrap;
+}
+
+.feedback-submit:hover:not(:disabled) {
+    background-color: var(--color-blue-hover);
+}
+
+.feedback-submit:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.feedback-status {
+    font-size: 12px;
+    color: var(--color-black-40);
 }
 
 /* ============================================================================
@@ -677,6 +798,14 @@ body {
     .message {
         max-width: 85%;
         gap: 6px;
+    }
+
+    .feedback-comment {
+        flex-wrap: wrap;
+    }
+
+    .feedback-comment-input {
+        width: 100%;
     }
 
     .chat-example {
